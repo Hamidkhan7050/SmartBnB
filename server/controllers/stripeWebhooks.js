@@ -1,39 +1,51 @@
-import stripe from "stripe";
+
+import Stripe from "stripe";
 import Booking from "../models/Booking.js";
 
-// API to handle Stripe Webhooks
-// POST /api/stripe
-export const stripeWebhooks = async (request, response) => {
-  // Stripe Gateway Initialize
-  const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-  const sig = request.headers["stripe-signature"];
+export const stripeWebhooks = async (req, res) => {
+  const sig = req.headers["stripe-signature"];
 
   let event;
 
   try {
-    event = stripeInstance.webhooks.constructEvent(request.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (err) {
-    response.status(400).send(`Webhook Error: ${err.message}`);
+    console.log(" Webhook verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // Handle the event
-  if (event.type === "payment_intent.succeeded") {
-    const paymentIntent = event.data.object;
-    const paymentIntentId = paymentIntent.id;
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
 
-    // Getting Session Metadata
-    const session = await stripeInstance.checkout.sessions.list({
-      payment_intent: paymentIntentId,
-    });
+      const bookingId = session.metadata.bookingId;
 
-    const { bookingId } = session.data[0].metadata;
+      console.log(" Payment success for booking:", bookingId);
 
-    // Mark Payment as Paid
-    await Booking.findByIdAndUpdate(bookingId, { isPaid: true, paymentMethod: "Stripe" });
-  } else {
-    console.log("Unhandled event type :", event.type);
+      if (!bookingId) {
+        console.log(" No bookingId found in metadata");
+        return res.status(400).send("No bookingId in metadata");
+      }
+
+      await Booking.findByIdAndUpdate(bookingId, {
+        isPaid: true,
+        status: "confirmed",
+        paymentMethod: "Stripe",
+      });
+
+      console.log(" Booking updated successfully");
+    }
+
+    res.json({ received: true }); //  IMPORTANT
+
+  } catch (error) {
+    console.log(" Error processing webhook:", error.message);
+    res.status(500).send("Server Error");
   }
-
-  response.json({ received: true });
 };

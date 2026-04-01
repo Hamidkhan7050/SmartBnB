@@ -13,18 +13,47 @@ const Dashboard = () => {
         totalRevenue: 0,
     });
 
+    // const fetchDashboardData = async () => {
+    //     try {
+    //         const { data } = await axios.get('/api/bookings/hotel', { headers: { Authorization: `Bearer ${await getToken()}` } })
+    //         if (data.success) {
+    //             setDashboardData(data.dashboardData)
+    //         } else {
+    //             toast.error(data.message)
+    //         }
+    //     } catch (error) {
+    //         toast.error(error.message)
+    //     }
+    // }
+
     const fetchDashboardData = async () => {
-        try {
-            const { data } = await axios.get('/api/bookings/hotel', { headers: { Authorization: `Bearer ${await getToken()}` } })
-            if (data.success) {
-                setDashboardData(data.dashboardData)
-            } else {
-                toast.error(data.message)
+    try {
+        const response = await axios.get(
+            '/api/bookings/hotel',
+            {
+                headers: {
+                    Authorization: `Bearer ${await getToken()}`
+                }
             }
-        } catch (error) {
-            toast.error(error.message)
+        );
+
+        const data = response.data;
+
+        console.log("DASHBOARD DATA:", data); //  debug
+
+        if (data && data.success) {
+            setDashboardData(data.dashboardData);
+        } else {
+            toast.error(data?.message || "Something went wrong");
         }
+
+    } catch (error) {
+        console.log("ERROR:", error);
+
+        //  SAFE error handling
+        toast.error(error?.response?.data?.message || error.message || "API Error");
     }
+};
 
     useEffect(() => {
         if (user) {

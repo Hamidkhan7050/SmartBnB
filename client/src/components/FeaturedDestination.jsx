@@ -4,8 +4,10 @@ import Title from './Title';
 import HotelCard from './HotelCard';
 
 
+
 const FeaturedDestination = () => {
     const { rooms, navigate } = useAppContext();
+    console.log("ROOMS:", rooms);
     return rooms.length > 0 && (
         <div className='flex flex-col items-center px-6 md:px-16 lg:px-24 bg-slate-50 py-20'>
             <Title title="Featured Destination" subTitle="Discover our handpicked selection of exceptional properties around the world, offering unparalleled luxury and unforgettable experiences." />

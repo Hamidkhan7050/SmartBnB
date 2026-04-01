@@ -1,13 +1,35 @@
 import User from "../models/User.js";
+import { clerkClient } from "@clerk/clerk-sdk-node";
 
-// Middleware to check if user is authenticated
 export const protect = async (req, res, next) => {
-  const { userId } = req.auth;
-  if (!userId) {
-    res.json({ success: false, message: "not authenticated" });
-  } else {
-    const user = await User.findById(userId);
+  try {
+    const { userId } = req.auth;
+
+    if (!userId) {
+      return res.json({ success: false, message: "Not authenticated" });
+    }
+
+    let user = await User.findOne({ clerkId: userId });
+
+    if (!user) {
+      console.log("Fetching user from Clerk...");
+
+      const clerkUser = await clerkClient.users.getUser(userId);
+
+      user = await User.create({
+        clerkId: userId,
+        username:
+          clerkUser.firstName + " " + clerkUser.lastName,
+        email: clerkUser.emailAddresses[0].emailAddress,
+        image: clerkUser.imageUrl,
+      });
+    }
+
     req.user = user;
+
     next();
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: "Auth error" });
   }
 };

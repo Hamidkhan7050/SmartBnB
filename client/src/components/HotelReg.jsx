@@ -73,3 +73,4 @@ const HotelReg = () => {
 };
 
 export default HotelReg;
+
