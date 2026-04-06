@@ -62,7 +62,8 @@ const Dashboard = () => {
     }, [user]);
 
     return (
-        <div>
+        <div className="min-h-screen flex flex-col">
+            <div className="flex-1 pb-20">
             <Title align='left' font='outfit' title='Dashboard' subTitle='Monitor your room listings, track bookings and analyze revenue—all in one place. Stay updated with real-time insights to ensure smooth operations.' />
             <div className='flex gap-4 my-8'>
                 <div className='bg-primary/3 border border-primary/10 rounded flex p-4 pr-8'>
@@ -83,8 +84,9 @@ const Dashboard = () => {
 
             <h2 className='text-xl text-blue-950/70 font-medium mb-5'>Recent Bookings</h2>
             {/* Table with heads User Name, Room Name, Amount Paid, Payment Status */}
-            <div className='w-full max-w-3xl text-left border border-gray-300 rounded-lg max-h-80 overflow-y-scroll'>
-                <table className='w-full' >
+            <div className='w-full max-w-3xl text-left border border-gray-300 rounded-lg overflow-y-auto' 
+  style={{ maxHeight: "35vh" }}>
+                <table  className='w-full table-fixed' >
                     <thead className='bg-gray-50'>
                         <tr>
                             <th className='py-3 px-4 text-gray-800 font-medium'>User Name</th>
@@ -100,7 +102,7 @@ const Dashboard = () => {
                                     <td className='py-3 px-4 text-gray-700 border-t border-gray-300'>{item.user.username}</td>
                                     <td className='py-3 px-4 text-gray-400 border-t border-gray-300 max-sm:hidden'>{item.room.roomType}</td>
                                     <td className='py-3 px-4 text-gray-400 border-t border-gray-300 text-center'>{currency} {item.totalPrice}</td>
-                                    <td className='py-3 px-4  border-t border-gray-300 flex'>
+                                    <td className='py-3 px-4 border-t border-gray-300 text-center'>
                                         <button className={`py-1 px-3 text-xs rounded-full mx-auto ${item.isPaid ? "bg-green-200 text-green-600" : "bg-amber-200 text-yellow-600"}`}>
                                             {item.isPaid ? "Completed" : "Pending"}
                                         </button>
@@ -110,6 +112,7 @@ const Dashboard = () => {
                         }
                     </tbody>
                 </table>
+            </div>
             </div>
 
         </div>

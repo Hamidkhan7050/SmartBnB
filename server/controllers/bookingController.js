@@ -39,7 +39,7 @@ export const checkAvailabilityAPI = async (req, res) => {
 export const createBooking = async (req, res) => {
   try {
 
-    const { room, checkInDate, checkOutDate, guests } = req.body;
+    const { room, checkInDate, checkOutDate, guests,price } = req.body;
 
     const user = req.user._id;
 
@@ -56,7 +56,15 @@ export const createBooking = async (req, res) => {
 
     // Get totalPrice from Room
     const roomData = await Room.findById(room).populate("hotel");
-    let totalPrice = roomData.pricePerNight;
+    // 🔐 validation (negotiation security)
+if (price && price > roomData.pricePerNight) {
+    return res.json({ success: false, message: "Invalid price" });
+}
+
+if (price && price < roomData.pricePerNight * 0.85) {
+    return res.json({ success: false, message: "Price too low" });
+}
+    let totalPrice = price || roomData.pricePerNight;
 
     // Calculate totalPrice based on nights
     const checkIn = new Date(checkInDate);

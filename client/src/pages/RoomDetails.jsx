@@ -16,6 +16,15 @@ const RoomDetails = () => {
     const [guests, setGuests] = useState(1);
 
     const [isAvailable, setIsAvailable] = useState(false);
+    const [messages, setMessages] = useState([
+    { sender: "bot", text: "Hi 👋 Let's negotiate the price." }
+]);
+
+const [input, setInput] = useState('');
+const [attempt, setAttempt] = useState(1);
+
+const [finalPrice, setFinalPrice] = useState(null);
+const [dealDone, setDealDone] = useState(false);
 
     // Check if the Room is Available
     const checkAvailability = async () => {
@@ -51,7 +60,7 @@ const RoomDetails = () => {
             if (!isAvailable) {
                 return checkAvailability();
             } else {
-                const { data } = await axios.post('/api/bookings/book', { room: id, checkInDate, checkOutDate, guests, paymentMethod: "Pay At Hotel" }, { headers: { Authorization: `Bearer ${await getToken()}` } })
+                const { data } = await axios.post('/api/bookings/book', { room: id, checkInDate, checkOutDate, guests,price: finalPrice || room.pricePerNight, paymentMethod: "Pay At Hotel" }, { headers: { Authorization: `Bearer ${await getToken()}` } })
                 if (data.success) {
                     toast.success(data.message)
                     navigate('/my-bookings')
@@ -65,6 +74,76 @@ const RoomDetails = () => {
         }
     }
 
+    const sendMessage = async () => {
+    if (!input || isNaN(input) || Number(input) <= 0) {
+    setMessages(prev => [
+        ...prev,
+        { sender: "bot", text: "⚠️ Valid price daalo" }
+    ]);
+    return;
+}
+
+    if (!input) return;
+
+
+    if (attempt > 3) {
+        setMessages(prev => [...prev, { sender: "bot", text: "❌ Negotiation closed" }]);
+        return;
+    }
+
+    const userOffer = input;
+
+    // 👤 user message
+    setMessages(prev => [...prev, { sender: "user", text: `₹${userOffer}` }]);
+    setInput('');
+
+    // 🤖 typing
+    setMessages(prev => [...prev, { sender: "bot", text: "..." }]);
+
+    try {
+        const { data } = await axios.post("/api/negotiate", {
+            realPrice: room.pricePerNight,
+            userOffer: Number(userOffer),
+            attempt
+        });
+
+        setMessages(prev => {
+            const updated = [...prev];
+            updated.pop();
+
+            let response;
+
+            if (data.status === "counter") {
+                response = `🤔 ${data.message}`;
+            } 
+            else if (data.status === "accept") {
+                response = `🤝 ${data.message}`;
+                setFinalPrice(data.finalPrice); // ⭐ MAIN LINE
+                setDealDone(true);
+            } 
+            else {
+                response = data.message;
+            }
+
+            return [...updated, { sender: "bot", text: response }];
+        });
+
+        if (data.status === "counter" || data.status === "accept") {
+    setAttempt(prev => prev + 1);
+
+    }
+    }catch (error) {
+    setMessages(prev => {
+        const updated = [...prev];
+        updated.pop();
+        return [...updated, { sender: "bot", text: "⚠️ Server error" }];
+    });
+
+
+    // setAttempt(prev => prev + 1);
+    
+}
+};
     useEffect(() => {
         const room = rooms.find(room => room._id === id);
         room && setRoom(room);
@@ -118,6 +197,16 @@ const RoomDetails = () => {
                 </div>
                 {/* Room Price */}
                 <p className='text-2xl font-medium'>${room.pricePerNight}/night</p>
+                {finalPrice && (
+  <div className="mt-2">
+    <p className="text-green-600 font-semibold">
+      Final Price: ₹{finalPrice}
+    </p>
+    <p className="text-sm text-gray-500">
+      You saved ₹{room.pricePerNight - finalPrice} 🎉
+    </p>
+  </div>
+)}
             </div>
 
             {/* CheckIn CheckOut Form */}
@@ -140,6 +229,51 @@ const RoomDetails = () => {
                 </div>
                 <button type='submit' className='bg-primary hover:bg-primary-dull active:scale-95 transition-all text-white rounded-md max-md:w-full max-md:mt-6 md:px-25 py-3 md:py-4 text-base cursor-pointer'>{isAvailable ? "Book Now" : "Check Availability"}</button>
             </form>
+
+            {/* 💬 NEGOTIATION CHAT UI */}
+<div className="mt-10 max-w-md border rounded-xl shadow-md bg-white flex flex-col h-[420px]">
+
+    {/* Header */}
+    <div className="bg-green-500 text-white p-3 rounded-t-xl font-semibold">
+        💬 Price Negotiation
+    </div>
+
+    {/* Messages */}
+    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`px-3 py-2 rounded-lg text-sm ${
+                    msg.sender === "user"
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-800"
+                }`}>
+                    {msg.text}
+                </div>
+            </div>
+        ))}
+    </div>
+
+    {/* Input */}
+    <div className="p-3 border-t flex gap-2">
+        <input
+            type="number"
+            value={input}
+            disabled={dealDone}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Enter your offer..."
+            className="flex-1 border px-3 py-2 rounded-md outline-none"
+        />
+
+        <button
+            onClick={sendMessage}
+            disabled={dealDone}
+            className="bg-green-500 text-white px-4 rounded-md hover:bg-green-600"
+        >
+            Send
+        </button>
+    </div>
+
+</div>
 
             {/* Common Specifications */}
             <div className='mt-25 space-y-4'>                

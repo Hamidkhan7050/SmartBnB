@@ -23,11 +23,11 @@ const App = () => {
   const { showHotelReg } = useAppContext();
 
   return (
-    <div className='font-inter'>
+    <div className='min-h-screen flex flex-col font-inter'>
       <Toaster />
       {!isOwnerPath && <Navbar />}
       {showHotelReg && <HotelReg />}
-      <div className='min-h-[70vh]'>
+      <div className='flex-1'>
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/rooms' element={<AllRooms />} />
