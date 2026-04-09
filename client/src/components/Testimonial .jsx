@@ -6,7 +6,7 @@ import StarRating from './StarRating';
 const Testimonial = () => {
     return (
         <div className='flex flex-col items-center px-6 md:px-16 lg:px-24 bg-slate-50 pt-20 pb-30'>
-            <Title title="What Our Guests Say" subTitle="Discover why discerning travelers consistently choose QuickStay for their exclusive and luxurious accommodations around the world." />
+            <Title title="What Our Guests Say" subTitle="Discover why discerning travelers consistently choose SmartBnB for their exclusive and luxurious accommodations around the world." />
             <div className='flex flex-wrap items-center gap-6 mt-20'>
                 {testimonials.map((testimonial) => (
                     <div key={testimonial.id} className='bg-white p-6 rounded-xl shadow'>
@@ -20,7 +20,7 @@ const Testimonial = () => {
                         <div className='flex items-center gap-1 mt-4'>
                            <StarRating />
                         </div>
-                        <p className='text-gray-500 max-w-90 mt-4'>"I've used many booking platforms before, but none compare to the personalized experience and attention to detail that QuickStay provides. Their curated selection of hotels is unmatched."</p>
+                        <p className='text-gray-500 max-w-90 mt-4'>"I've used many booking platforms before, but none compare to the personalized experience and attention to detail that SmartBnB provides. Their curated selection of hotels is unmatched."</p>
                     </div>
                 ))}
             </div>

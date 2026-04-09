@@ -17,14 +17,15 @@ const RoomDetails = () => {
 
     const [isAvailable, setIsAvailable] = useState(false);
     const [messages, setMessages] = useState([
-    { sender: "bot", text: "Hi 👋 Let's negotiate the price." }
-]);
+        { sender: "bot", text: "Hi 👋 Let's negotiate the price." }
+    ]);
 
-const [input, setInput] = useState('');
-const [attempt, setAttempt] = useState(1);
+    const [input, setInput] = useState('');
+    const [attempt, setAttempt] = useState(1);
 
-const [finalPrice, setFinalPrice] = useState(null);
-const [dealDone, setDealDone] = useState(false);
+    const [finalPrice, setFinalPrice] = useState(null);
+    const [dealDone, setDealDone] = useState(false);
+    const [negotiationStarted, setNegotiationStarted] = useState(false);
 
     // Check if the Room is Available
     const checkAvailability = async () => {
@@ -57,10 +58,14 @@ const [dealDone, setDealDone] = useState(false);
     const onSubmitHandler = async (e) => {
         try {
             e.preventDefault();
+            if (negotiationStarted && attempt <= 3) {
+                toast.error("⚠ Pehle 3 steps negotiation complete karo");
+                return;
+            }
             if (!isAvailable) {
                 return checkAvailability();
             } else {
-                const { data } = await axios.post('/api/bookings/book', { room: id, checkInDate, checkOutDate, guests,price: finalPrice || room.pricePerNight, paymentMethod: "Pay At Hotel" }, { headers: { Authorization: `Bearer ${await getToken()}` } })
+                const { data } = await axios.post('/api/bookings/book', { room: id, checkInDate, checkOutDate, guests, price: finalPrice || room.pricePerNight, paymentMethod: "Pay At Hotel" }, { headers: { Authorization: `Bearer ${await getToken()}` } })
                 if (data.success) {
                     toast.success(data.message)
                     navigate('/my-bookings')
@@ -75,75 +80,101 @@ const [dealDone, setDealDone] = useState(false);
     }
 
     const sendMessage = async () => {
-    if (!input || isNaN(input) || Number(input) <= 0) {
-    setMessages(prev => [
-        ...prev,
-        { sender: "bot", text: "⚠️ Valid price daalo" }
-    ]);
-    return;
-}
+        if (!input || isNaN(input) || Number(input) <= 0) {
+            setMessages(prev => [
+                ...prev,
+                { sender: "bot", text: "⚠️ Valid price daalo" }
+            ]);
+            return;
+        }
 
-    if (!input) return;
+        if (!negotiationStarted) {
+            setNegotiationStarted(true);
+        }
 
+        if (attempt > 3) {
+            setMessages(prev => [
+                ...prev,
+                { sender: "bot", text: "❌ Negotiation closed" }
+            ]);
+            return;
+        }
 
-    if (attempt > 3) {
-        setMessages(prev => [...prev, { sender: "bot", text: "❌ Negotiation closed" }]);
-        return;
-    }
+        const userOffer = input;
 
-    const userOffer = input;
+        // 👤 user message
+        setMessages(prev => [
+            ...prev,
+            { sender: "user", text: `₹${userOffer}` }
+        ]);
 
-    // 👤 user message
-    setMessages(prev => [...prev, { sender: "user", text: `₹${userOffer}` }]);
-    setInput('');
+        setInput('');
 
-    // 🤖 typing
-    setMessages(prev => [...prev, { sender: "bot", text: "..." }]);
+        //  typing
+        setMessages(prev => [
+            ...prev,
+            { sender: "bot", text: "..." }
+        ]);
 
-    try {
-        const { data } = await axios.post("/api/negotiate", {
-            realPrice: room.pricePerNight,
-            userOffer: Number(userOffer),
-            attempt
-        });
+        try {
+            const { data } = await axios.post("/api/negotiate", {
+                realPrice: room.pricePerNight,
+                userOffer: Number(userOffer),
+                attempt
+            });
 
-        setMessages(prev => {
-            const updated = [...prev];
-            updated.pop();
+            //  MESSAGE UPDATE FIX
+            setMessages(prev => {
+                const updated = [...prev];
+                updated.pop(); // remove "..."
 
-            let response;
+                //  COUNTER
+                if (data.status === "counter") {
+                    return [
+                        ...updated,
+                        { sender: "bot", text: `🤔 ${data.message}` }
+                    ];
+                }
 
+                //  ACCEPT (FINAL)
+                if (data.status === "accept") {
+                    setFinalPrice(data.finalPrice);
+                    setDealDone(true);
+
+                    return [
+                        ...updated,
+                        { sender: "bot", text: `🤝 ${data.message}` },
+                        { sender: "bot", text: "✅ Negotiation done. Now you can book." }
+                    ];
+                }
+
+                // fallback
+                return [
+                    ...updated,
+                    { sender: "bot", text: data.message }
+                ];
+            });
+
+            //  ATTEMPT LOGIC FIX
             if (data.status === "counter") {
-                response = `🤔 ${data.message}`;
-            } 
-            else if (data.status === "accept") {
-                response = `🤝 ${data.message}`;
-                setFinalPrice(data.finalPrice); // ⭐ MAIN LINE
-                setDealDone(true);
-            } 
-            else {
-                response = data.message;
+                setAttempt(prev => prev + 1);
             }
 
-            return [...updated, { sender: "bot", text: response }];
-        });
+            if (data.status === "accept") {
+                setAttempt(4); // force close
+            }
 
-        if (data.status === "counter" || data.status === "accept") {
-    setAttempt(prev => prev + 1);
-
-    }
-    }catch (error) {
-    setMessages(prev => {
-        const updated = [...prev];
-        updated.pop();
-        return [...updated, { sender: "bot", text: "⚠️ Server error" }];
-    });
-
-
-    // setAttempt(prev => prev + 1);
-    
-}
-};
+        } catch (error) {
+            setMessages(prev => {
+                const updated = [...prev];
+                updated.pop();
+                return [
+                    ...updated,
+                    { sender: "bot", text: "⚠️ Server error" }
+                ];
+            });
+        }
+    };
     useEffect(() => {
         const room = rooms.find(room => room._id === id);
         room && setRoom(room);
@@ -198,15 +229,15 @@ const [dealDone, setDealDone] = useState(false);
                 {/* Room Price */}
                 <p className='text-2xl font-medium'>${room.pricePerNight}/night</p>
                 {finalPrice && (
-  <div className="mt-2">
-    <p className="text-green-600 font-semibold">
-      Final Price: ₹{finalPrice}
-    </p>
-    <p className="text-sm text-gray-500">
-      You saved ₹{room.pricePerNight - finalPrice} 🎉
-    </p>
-  </div>
-)}
+                    <div className="mt-2">
+                        <p className="text-green-600 font-semibold">
+                            Final Price: ₹{finalPrice}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                            You saved ₹{room.pricePerNight - finalPrice} 🎉
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* CheckIn CheckOut Form */}
@@ -230,53 +261,59 @@ const [dealDone, setDealDone] = useState(false);
                 <button type='submit' className='bg-primary hover:bg-primary-dull active:scale-95 transition-all text-white rounded-md max-md:w-full max-md:mt-6 md:px-25 py-3 md:py-4 text-base cursor-pointer'>{isAvailable ? "Book Now" : "Check Availability"}</button>
             </form>
 
-            {/* 💬 NEGOTIATION CHAT UI */}
-<div className="mt-10 max-w-md border rounded-xl shadow-md bg-white flex flex-col h-[420px]">
+            {/*  NEGOTIATION CHAT UI */}
+            <div className="mt-10 max-w-md border rounded-xl shadow-md bg-white flex flex-col h-[420px]">
 
-    {/* Header */}
-    <div className="bg-green-500 text-white p-3 rounded-t-xl font-semibold">
-        💬 Price Negotiation
-    </div>
-
-    {/* Messages */}
-    <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`px-3 py-2 rounded-lg text-sm ${
-                    msg.sender === "user"
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-800"
-                }`}>
-                    {msg.text}
+                {/* Header */}
+                <div className="bg-green-500 text-white p-3 rounded-t-xl font-semibold">
+                     Price Negotiation
                 </div>
+                <div className="px-3 py-1 bg-gray-100 text-xs flex justify-between">
+                    <span>Attempts</span>
+                    <span className="font-semibold">
+                        {dealDone ? "Completed ✅" : `${Math.min(attempt, 3)}/3`}
+                    </span>
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    {messages.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                            <div className={`px-3 py-2 rounded-lg text-sm ${msg.sender === "user"
+                                ? "bg-green-500 text-white"
+                                : "bg-gray-200 text-gray-800"
+                                }`}>
+                                {msg.text}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {!dealDone && (
+                    <div className="p-3 border-t flex gap-2">
+                        <input
+                            type="number"
+                            value={input}
+                            disabled={attempt > 3}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Enter your offer..."
+                            className="flex-1 border px-3 py-2 rounded-md outline-none"
+                        />
+
+                        <button
+                            onClick={sendMessage}
+                            disabled={attempt > 3}
+                            className="bg-green-500 text-white px-4 rounded-md hover:bg-green-600"
+                        >
+                            Send
+                        </button>
+                    </div>
+                )}
+
             </div>
-        ))}
-    </div>
-
-    {/* Input */}
-    <div className="p-3 border-t flex gap-2">
-        <input
-            type="number"
-            value={input}
-            disabled={dealDone}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Enter your offer..."
-            className="flex-1 border px-3 py-2 rounded-md outline-none"
-        />
-
-        <button
-            onClick={sendMessage}
-            disabled={dealDone}
-            className="bg-green-500 text-white px-4 rounded-md hover:bg-green-600"
-        >
-            Send
-        </button>
-    </div>
-
-</div>
 
             {/* Common Specifications */}
-            <div className='mt-25 space-y-4'>                
+            <div className='mt-25 space-y-4'>
                 {roomCommonData.map((spec, index) => (
                     <div key={index} className='flex items-start gap-2'>
                         <img className='w-6.5' src={spec.icon} alt={`${spec.title}-icon`} />
